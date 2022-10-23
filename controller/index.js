@@ -1,6 +1,9 @@
 const service = require("../servisce");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const path = require("path");
+//const convertingAvatars = require("../service/convertingAvatars");
+const fs = require("fs").promises;
 require("dotenv").config();
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -106,27 +109,22 @@ const favorite = async (req, res) => {
   }
 };
 
-/* ---------------------------------------------------------
----------------------------/users/------------------------ 
------------------------------------------------------------*/
+//users
 
-/*============================ SIGNUP==================== */
 const signup = async (req, res) => {
   const { email, password } = req.body;
   try {
-    /* Перевіряємо є такий користувач у БД */
+    //* Перевіряємо наявність користувача
     const user = await service.validateEmail(email);
     if (user) {
       res.status(409).json({ message: "Email in use" });
       return;
     }
 
-    /* Шифруємо пароль */
+    //* Шифруємо пароль
     const hashPassword = await bcrypt.hash(password, 10);
-    /* Створюємо нового користувача */
+    //* Створення нового користувача
     const result = await service.createUser({ email, password: hashPassword });
-
-    /* Відправляємо відповідь */
     res.status(201).json({
       user: {
         email: result.email,
@@ -138,11 +136,10 @@ const signup = async (req, res) => {
   }
 };
 
-/*======================= LOGIN====================== */
+//*LOGIN
 const login = async (req, res) => {
   const { email, password } = req.body;
   try {
-    /* Проверяем есть ли такой пользователь в БД */
     const user = await service.validateEmail(email);
     if (!user) {
       res
@@ -151,20 +148,19 @@ const login = async (req, res) => {
       return;
     }
 
-    /* Проверяем пароль сходиться */
     const checkPassword = await bcrypt.compare(password, user.password);
     if (!checkPassword) {
       res.status(401).json({ message: "The password is wrong" });
       return;
     }
 
-    /* Создаем токен */
+    //* Создаем токена
     const payload = { id: user["_id"], subscription: user.subscription };
     const token = jwt.sign(payload, SECRET_KEY, { expiresIn: "24h" });
-    /* Обновляем токен в БД */
+
     const result = await service.updateUserToken({ id: user["_id"], token });
 
-    /* Отправляем ответ пользователю */
+    //* Отправляем ответ пользователю
     res.status(200).json({
       token: result.token,
       user: {
@@ -177,7 +173,7 @@ const login = async (req, res) => {
   }
 };
 
-/*=========================== LOGOUT================= */
+//*LOGOUT
 const logout = async (req, res) => {
   const { id } = req.user;
   try {
@@ -188,7 +184,6 @@ const logout = async (req, res) => {
   }
 };
 
-/*=========================== CURRENT================= */
 const current = async (req, res) => {
   const { email, subscription } = req.user;
   try {
@@ -198,7 +193,6 @@ const current = async (req, res) => {
   }
 };
 
-/*=========================== CURRENT================= */
 const subscription = async (req, res) => {
   const { id } = req.user;
   const { subscription } = req.body;
@@ -213,6 +207,41 @@ const subscription = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+//* Avatar
+const avatars = async (req, res) => {
+  const { path: tmpDir, originalname } = req.file;
+  const { id } = req.user;
+
+  //* Генеруємо нове імʼя та  шлях файлу
+  const extension = originalname.split(".").reverse()[0];
+  const newName = `${id}.${extension}`;
+  const newPathAvatar = path.join(__dirname, "../public/avatars/", newName);
+
+  try {
+    //* Функція яка обрізає зображення
+    await convertingAvatars({ tmpDir });
+
+    //* Переміщуємо файл в іншу директорію
+    await fs.rename(tmpDir, newPathAvatar);
+
+    //* Оновлюємо посилання на зображення
+    const { avatarURL } = await service.updateAvatar({
+      id,
+      avatarURL: `/avatars/${newName}`,
+    });
+
+    //* Відповідь
+    res.status(200).json({ avatarURL });
+  } catch (error) {
+    //*Якщо помилка то видаляємо файл
+    fs.unlink(tmpDir);
+
+    //* Відповідь сервера при помилці
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   get,
   getById,
@@ -225,4 +254,5 @@ module.exports = {
   logout,
   current,
   subscription,
+  avatars
 };
