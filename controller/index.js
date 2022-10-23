@@ -2,7 +2,7 @@ const service = require("../servisce");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const path = require("path");
-//const convertingAvatars = require("../service/convertingAvatars");
+const convertingAvatars = require("../servisce/convertingAvatars");
 const fs = require("fs").promises;
 require("dotenv").config();
 
