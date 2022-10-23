@@ -1,6 +1,9 @@
 const service = require("../servisce");
 const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
+const path = require("path");
+//const convertingAvatars = require("../service/convertingAvatars");
+const fs = require("fs").promises;
 require("dotenv").config();
 
 const SECRET_KEY = process.env.SECRET_KEY;
@@ -204,6 +207,41 @@ const subscription = async (req, res) => {
     res.status(400).json({ message: error.message });
   }
 };
+
+//* Avatar
+const avatars = async (req, res) => {
+  const { path: tmpDir, originalname } = req.file;
+  const { id } = req.user;
+
+  //* Генеруємо нове імʼя та  шлях файлу
+  const extension = originalname.split(".").reverse()[0];
+  const newName = `${id}.${extension}`;
+  const newPathAvatar = path.join(__dirname, "../public/avatars/", newName);
+
+  try {
+    //* Функція яка обрізає зображення
+    await convertingAvatars({ tmpDir });
+
+    //* Переміщуємо файл в іншу директорію
+    await fs.rename(tmpDir, newPathAvatar);
+
+    //* Оновлюємо посилання на зображення
+    const { avatarURL } = await service.updateAvatar({
+      id,
+      avatarURL: `/avatars/${newName}`,
+    });
+
+    //* Відповідь
+    res.status(200).json({ avatarURL });
+  } catch (error) {
+    //*Якщо помилка то видаляємо файл
+    fs.unlink(tmpDir);
+
+    //* Відповідь сервера при помилці
+    res.status(400).json({ message: error.message });
+  }
+};
+
 module.exports = {
   get,
   getById,
@@ -216,4 +254,5 @@ module.exports = {
   logout,
   current,
   subscription,
+  avatars
 };

@@ -56,6 +56,14 @@ const updateSubscription = async ({ id, subscription }) => {
   );
   return result;
 };
+const updateAvatar = async ({ id, avatarURL }) => {
+  const result = await Users.findByIdAndUpdate(
+    id,
+    { avatarURL },
+    { new: true }
+  );
+  return result;
+};
 module.exports = {
   getAllContacts,
   getByIdContact,
@@ -68,4 +76,5 @@ module.exports = {
   updateUserToken,
   findByIdUser,
   updateSubscription,
+  updateAvatar,
 };
